@@ -677,20 +677,10 @@ requires_openai_auth = true`,
       "MiniMax-M3",
     ),
     endpointCandidates: ["https://api.minimaxi.com/v1"],
-    // MiniMax 官方 API 参考已列 /v1/responses 为正式端点（CN/intl 双区，POST /v1/responses），原生 Responses，无需路由接管转换
-    apiFormat: "openai_responses",
-    // 官方 Codex catalog（platform.minimaxi.com/docs/token-plan/codex-cli）：
-    // shell_command 编辑、并行工具、文本+图像，不声明 freeform apply_patch
+    apiFormat: "openai_chat",
     modelCatalog: modelCatalog([
-      {
-        model: "MiniMax-M3",
-        displayName: "MiniMax-M3",
-        contextWindow: 1000000,
-        supportsParallelToolCalls: true,
-        inputModalities: ["text", "image"],
-        baseInstructions:
-          "You are Codex, a coding agent based on MiniMax-M3. You and the user share the same workspace and collaborate to achieve the user's goals.",
-      },
+      { model: "minimaxai/minimax-m2.7", displayName: "MiniMax M2.7", contextWindow: 131072 },
+      { model: "minimaxai/minimax-m3", displayName: "MiniMax M3", contextWindow: 262144 },
     ]),
     category: "cn_official",
     partnerPromotionKey: "minimax_cn",
@@ -712,21 +702,7 @@ requires_openai_auth = true`,
       "MiniMax-M3",
     ),
     endpointCandidates: ["https://api.minimax.io/v1"],
-    // MiniMax 官方 API 参考已列 /v1/responses 为正式端点（CN/intl 双区，POST /v1/responses），原生 Responses，无需路由接管转换
-    apiFormat: "openai_responses",
-    // 官方 Codex catalog（platform.minimax.io/docs/token-plan/codex）：
-    // shell_command 编辑、并行工具、文本+图像，不声明 freeform apply_patch
-    modelCatalog: modelCatalog([
-      {
-        model: "MiniMax-M3",
-        displayName: "MiniMax-M3",
-        contextWindow: 1000000,
-        supportsParallelToolCalls: true,
-        inputModalities: ["text", "image"],
-        baseInstructions:
-          "You are Codex, a coding agent based on MiniMax-M3. You and the user share the same workspace and collaborate to achieve the user's goals.",
-      },
-    ]),
+    apiFormat: "openai_chat",
     category: "cn_official",
     partnerPromotionKey: "minimax_en",
     theme: {
@@ -933,7 +909,7 @@ requires_openai_auth = true`,
     codexChatReasoning: {
       supportsThinking: true,
       supportsEffort: false,
-      thinkingParam: "thinking",
+      thinkingParam: "none",
       effortParam: "none",
       outputFormat: "reasoning_content",
     },

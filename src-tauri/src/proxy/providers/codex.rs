@@ -151,6 +151,17 @@ pub fn resolve_codex_chat_reasoning_config(
     provider: &Provider,
     body: &JsonValue,
 ) -> Option<CodexChatReasoningConfig> {
+    // MiniMax 模型在不同版本（m2.7 vs m3）间 reasoning 参数行为不同，
+    // DB meta 是 provider 级别的，无法表达按模型差异，故对 MiniMax 始终走推理。
+    let model = body
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let is_minimax = model.contains("minimax");
+    if is_minimax {
+        return infer_codex_chat_reasoning_config(provider, body);
+    }
+
     if let Some(config) = provider
         .meta
         .as_ref()
@@ -266,13 +277,21 @@ fn infer_codex_chat_reasoning_config(
     }
 
     if haystack.contains("minimax") {
+        // aibroker 代理下不同模型 reasoning 行为不同：
+        // - minimaxai/minimax-m2.7: 拒绝 thinking 参数，但默认返回 reasoning_content
+        // - minimaxai/minimax-m3: 需要 thinking 参数才能输出 reasoning
+        let needs_thinking_param = model.contains("m3");
         return Some(CodexChatReasoningConfig {
-            supports_thinking: Some(true),
+            supports_thinking: Some(needs_thinking_param),
             supports_effort: Some(false),
-            thinking_param: Some("reasoning_split".to_string()),
+            thinking_param: Some(if needs_thinking_param {
+                "thinking".to_string()
+            } else {
+                "none".to_string()
+            }),
             effort_param: Some("none".to_string()),
             effort_value_mode: None,
-            output_format: Some("reasoning_details".to_string()),
+            output_format: Some("reasoning_content".to_string()),
         });
     }
 
@@ -324,6 +343,21 @@ fn infer_aggregator_platform_config(
             supports_thinking: Some(true),
             supports_effort: Some(false),
             thinking_param: Some("enable_thinking".to_string()),
+            effort_param: Some("none".to_string()),
+            effort_value_mode: None,
+            output_format: Some("reasoning_content".to_string()),
+        });
+    }
+
+    // Nvidia NIM：平台统一 OpenAI `thinking` 参数，但 minimax-m2.7 等模型既不支持
+    // `thinking` 也不支持 `reasoning_split`，任何推理参数都会触发 400。
+    // 设为 "none" 让 apply_reasoning_options 直接返回，不注入任何字段，
+    // 由模型自行决定是否输出 reasoning_content。
+    if platform.contains("nvidia") {
+        return Some(CodexChatReasoningConfig {
+            supports_thinking: Some(true),
+            supports_effort: Some(false),
+            thinking_param: Some("none".to_string()),
             effort_param: Some("none".to_string()),
             effort_value_mode: None,
             output_format: Some("reasoning_content".to_string()),
