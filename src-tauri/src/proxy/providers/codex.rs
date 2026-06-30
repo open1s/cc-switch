@@ -163,16 +163,21 @@ pub fn apply_codex_chat_reasoning_for_upstream(
     };
     let thinking_param = config.thinking_param.as_deref().unwrap_or("thinking");
 
+    let model = body
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
     match thinking_param {
         "thinking" => {
-            // 上游需要 thinking 参数 → 按 reasoning_effort 注入
             if body.get("reasoning_effort").is_some() {
                 body["thinking"] = json!({ "type": "enabled" });
                 body.as_object_mut().unwrap().remove("reasoning_effort");
             }
+            ensure_max_tokens_for_minimax(body, &model);
         }
         "none" => {
-            // 上游拒绝 thinking 参数 → 清除
             if let Some(obj) = body.as_object_mut() {
                 obj.remove("thinking");
                 obj.remove("reasoning_effort");
@@ -180,6 +185,17 @@ pub fn apply_codex_chat_reasoning_for_upstream(
         }
         _ => {}
     }
+}
+
+fn ensure_max_tokens_for_minimax(body: &mut JsonValue, model: &str) {
+    if !model.contains("minimax") {
+        return;
+    }
+    let has_max = body.get("max_tokens").is_some() || body.get("max_completion_tokens").is_some();
+    if has_max {
+        return;
+    }
+    body["max_tokens"] = json!(8192);
 }
 
 pub fn resolve_codex_chat_reasoning_config(

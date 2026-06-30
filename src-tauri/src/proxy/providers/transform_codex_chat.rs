@@ -304,6 +304,10 @@ pub fn responses_to_chat_completions_with_reasoning(
 
     apply_reasoning_options(&mut result, &body, model, reasoning_config);
 
+    if model.contains("minimax") && !result.get("max_tokens").is_some() && !result.get("max_completion_tokens").is_some() {
+        result["max_tokens"] = json!(8192);
+    }
+
     let tools = tool_context.chat_tools();
     if !tools.is_empty() {
         result["tools"] = json!(tools);
