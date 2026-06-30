@@ -707,8 +707,16 @@ pub async fn handle_responses(
         .map_err(|e| ProxyError::Internal(format!("Failed to read request body: {e}")))?
         .to_bytes();
     let body_bytes = decode_codex_request_body(&mut headers, body_bytes)?;
-    let body: Value = serde_json::from_slice(&body_bytes)
+    let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
+
+    // Nvidia NIM 的部分模型不接受 `thinking` 参数。
+    // 对于会走 Responses→Chat 转换路径的 provider，apply_reasoning_options 会按
+    // 推理配置重新注入正确的参数，不受此处过滤影响。
+    if let Some(obj) = body.as_object_mut() {
+        obj.remove("thinking");
+        obj.remove("reasoning_effort");
+    }
 
     let mut ctx =
         RequestContext::new(&state, &body, &headers, AppType::Codex, "Codex", "codex").await?;
@@ -786,8 +794,16 @@ pub async fn handle_responses_compact(
         .map_err(|e| ProxyError::Internal(format!("Failed to read request body: {e}")))?
         .to_bytes();
     let body_bytes = decode_codex_request_body(&mut headers, body_bytes)?;
-    let body: Value = serde_json::from_slice(&body_bytes)
+    let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
+
+    // Nvidia NIM 的部分模型不接受 `thinking` 参数。
+    // 对于会走 Responses→Chat 转换路径的 provider，apply_reasoning_options 会按
+    // 推理配置重新注入正确的参数，不受此处过滤影响。
+    if let Some(obj) = body.as_object_mut() {
+        obj.remove("thinking");
+        obj.remove("reasoning_effort");
+    }
 
     let mut ctx =
         RequestContext::new(&state, &body, &headers, AppType::Codex, "Codex", "codex").await?;
