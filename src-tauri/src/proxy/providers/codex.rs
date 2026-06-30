@@ -9,7 +9,7 @@ use super::{AuthInfo, AuthStrategy, ProviderAdapter};
 use crate::provider::{CodexChatReasoningConfig, Provider};
 use crate::proxy::error::ProxyError;
 use regex::Regex;
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
 use std::collections::HashSet;
 use std::sync::LazyLock;
 use toml::Value as TomlValue;
@@ -145,6 +145,41 @@ pub fn apply_codex_chat_upstream_model(
     let upstream_model = codex_provider_upstream_model(provider)?;
     body["model"] = JsonValue::String(upstream_model.clone());
     Some(upstream_model)
+}
+
+/// 对 Chat Completions 路径应用 provider 特定的 reasoning 参数处理：
+/// - `thinking_param == "none"`：清除 `thinking`/`reasoning_effort`（Nvidia m2.7）
+/// - `thinking_param == "thinking"` 且 body 有 `reasoning_effort`：
+///   注入 `thinking: {type: "enabled"}` 并清除 `reasoning_effort`（MiniMax m3）
+///
+/// Responses 路径由 `apply_reasoning_options` 在 Responses→Chat 转换时处理，
+/// 不受此函数影响。
+pub fn apply_codex_chat_reasoning_for_upstream(
+    provider: &Provider,
+    body: &mut JsonValue,
+) {
+    let Some(config) = resolve_codex_chat_reasoning_config(provider, body) else {
+        return;
+    };
+    let thinking_param = config.thinking_param.as_deref().unwrap_or("thinking");
+
+    match thinking_param {
+        "thinking" => {
+            // 上游需要 thinking 参数 → 按 reasoning_effort 注入
+            if body.get("reasoning_effort").is_some() {
+                body["thinking"] = json!({ "type": "enabled" });
+                body.as_object_mut().unwrap().remove("reasoning_effort");
+            }
+        }
+        "none" => {
+            // 上游拒绝 thinking 参数 → 清除
+            if let Some(obj) = body.as_object_mut() {
+                obj.remove("thinking");
+                obj.remove("reasoning_effort");
+            }
+        }
+        _ => {}
+    }
 }
 
 pub fn resolve_codex_chat_reasoning_config(

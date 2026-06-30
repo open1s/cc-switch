@@ -1137,6 +1137,14 @@ impl RequestForwarder {
         // 与 CCH 对齐：请求前不做 thinking 主动改写（仅保留兼容入口）
         let mut mapped_body = normalize_thinking_type(mapped_body);
 
+        // Chat 路径：按 provider 推理配置处理 thinking/reasoning_effort。
+        // 对于上游拒绝 thinking 的 provider（Nvidia），清除相关字段避免 400/500。
+        // 对于上游需要 thinking 的 provider（MiniMax m3），由 reasoning_effort 注入。
+        // Responses 路径由 apply_reasoning_options 在转换时处理，不受此处影响。
+        if matches!(app_type, AppType::Codex) && !is_copilot {
+            super::providers::apply_codex_chat_reasoning_for_upstream(provider, &mut mapped_body);
+        }
+
         if is_copilot {
             mapped_body =
                 super::providers::copilot_model_map::apply_copilot_model_normalization(mapped_body);

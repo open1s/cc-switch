@@ -635,15 +635,6 @@ pub async fn handle_chat_completions(
     let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
 
-    // Nvidia NIM / aibroker 的部分模型不接受 `thinking` 参数，400/500。
-    // Responses 路径（/v1/responses）由 apply_reasoning_options 按推理配置注入正确的参数，
-    // 不受此处影响。Chat 路径（/v1/chat/completions）去掉了 thinking/reasoning_effort 后，
-    // 若上游需要这些参数，应在 provider 适配层按需回填。
-    if let Some(obj) = body.as_object_mut() {
-        obj.remove("thinking");
-        obj.remove("reasoning_effort");
-    }
-
     let mut ctx =
         RequestContext::new(&state, &body, &headers, AppType::Codex, "Codex", "codex").await?;
     let endpoint = endpoint_with_query(&uri, "/chat/completions");
@@ -709,14 +700,6 @@ pub async fn handle_responses(
     let body_bytes = decode_codex_request_body(&mut headers, body_bytes)?;
     let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
-
-    // Nvidia NIM 的部分模型不接受 `thinking` 参数。
-    // 对于会走 Responses→Chat 转换路径的 provider，apply_reasoning_options 会按
-    // 推理配置重新注入正确的参数，不受此处过滤影响。
-    if let Some(obj) = body.as_object_mut() {
-        obj.remove("thinking");
-        obj.remove("reasoning_effort");
-    }
 
     let mut ctx =
         RequestContext::new(&state, &body, &headers, AppType::Codex, "Codex", "codex").await?;
@@ -796,14 +779,6 @@ pub async fn handle_responses_compact(
     let body_bytes = decode_codex_request_body(&mut headers, body_bytes)?;
     let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
-
-    // Nvidia NIM 的部分模型不接受 `thinking` 参数。
-    // 对于会走 Responses→Chat 转换路径的 provider，apply_reasoning_options 会按
-    // 推理配置重新注入正确的参数，不受此处过滤影响。
-    if let Some(obj) = body.as_object_mut() {
-        obj.remove("thinking");
-        obj.remove("reasoning_effort");
-    }
 
     let mut ctx =
         RequestContext::new(&state, &body, &headers, AppType::Codex, "Codex", "codex").await?;
