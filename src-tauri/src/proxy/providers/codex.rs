@@ -349,21 +349,6 @@ fn infer_aggregator_platform_config(
         });
     }
 
-    // Nvidia NIM：平台统一 OpenAI `thinking` 参数，但 minimax-m2.7 等模型既不支持
-    // `thinking` 也不支持 `reasoning_split`，任何推理参数都会触发 400。
-    // 设为 "none" 让 apply_reasoning_options 直接返回，不注入任何字段，
-    // 由模型自行决定是否输出 reasoning_content。
-    if platform.contains("nvidia") {
-        return Some(CodexChatReasoningConfig {
-            supports_thinking: Some(true),
-            supports_effort: Some(false),
-            thinking_param: Some("none".to_string()),
-            effort_param: Some("none".to_string()),
-            effort_value_mode: None,
-            output_format: Some("reasoning_content".to_string()),
-        });
-    }
-
     None
 }
 
